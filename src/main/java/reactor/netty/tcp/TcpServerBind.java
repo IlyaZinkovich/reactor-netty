@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -49,11 +50,9 @@ import static reactor.netty.ReactorNetty.format;
 final class TcpServerBind extends TcpServer {
 
 	static final TcpServerBind INSTANCE = new TcpServerBind();
-	private final DnsNameResolver dnsNameResolver;
 	final ServerBootstrap serverBootstrap;
 
 	private TcpServerBind() {
-    this.dnsNameResolver = new DefaultDnsNameResolver();
     this.serverBootstrap = createServerBootstrap();
 		BootstrapHandlers.channelOperationFactory(this.serverBootstrap, TcpUtils.TCP_OPS);
 	}
@@ -118,7 +117,8 @@ final class TcpServerBind extends TcpServer {
 			InetSocketAddress localInet = (InetSocketAddress) local;
 
 			if (localInet.isUnresolved()) {
-				b.localAddress(InetSocketAddressResolver.resolve(localInet.getHostName(), localInet.getPort(), dnsNameResolver));
+				b.localAddress(InetSocketAddressResolver.resolve(localInet.getHostName(), localInet.getPort(),
+            Optional.ofNullable(super.dnsNameResolver).orElseGet(DefaultDnsNameResolver::new)));
 			}
 
 		}

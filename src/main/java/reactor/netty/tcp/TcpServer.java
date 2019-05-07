@@ -76,6 +76,7 @@ import reactor.util.Loggers;
  */
 public abstract class TcpServer {
 
+	protected DnsNameResolver dnsNameResolver;
 	/**
 	 * Prepare a {@link TcpServer}
 	 *
@@ -97,25 +98,9 @@ public abstract class TcpServer {
 		return bootstrap(b -> b.localAddress(bindingAddressSupplier.get()));
 	}
 
-	public final TcpServer dnsResolverSupplier(DnsNameResolver dnsNameResolver) {
-		return bootstrap(b -> {
-			ServerBootstrap serverBootstrap = null;
-			SocketAddress local = b.config().localAddress();
-			Objects.requireNonNull(local, "Remote Address not configured");
-			if (local instanceof Supplier) {
-				Supplier<? extends SocketAddress> lazyLocal = (Supplier<? extends SocketAddress>) local;
-				serverBootstrap = b.localAddress(Objects.requireNonNull(lazyLocal.get(), "address supplier returned  null"));
-			}
-			if (local instanceof InetSocketAddress) {
-				InetSocketAddress localInet = (InetSocketAddress) local;
-				if (localInet.isUnresolved()) {
-					String hostname = localInet.getHostName();
-					int port = localInet.getPort();
-					serverBootstrap = b.localAddress(InetSocketAddressResolver.resolve(hostname, port, dnsNameResolver));
-				}
-			}
-			return Optional.ofNullable(serverBootstrap).orElse(b);
-		});
+	public final TcpServer dnsResolver(DnsNameResolver dnsNameResolver) {
+		this.dnsNameResolver = dnsNameResolver;
+		return this;
 	}
 
 	/**
