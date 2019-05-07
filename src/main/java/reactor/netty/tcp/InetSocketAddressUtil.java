@@ -20,7 +20,9 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 import io.netty.util.NetUtil;
@@ -35,6 +37,8 @@ import io.netty.util.NetUtil;
  *
  */
 public class InetSocketAddressUtil {
+
+	private static final DnsNameResolver dnsNameResolver = new DefaultDnsNameResolver();
 
 	/**
 	 * Creates unresolved InetSocketAddress. Numeric IP addresses will be detected and
@@ -69,15 +73,20 @@ public class InetSocketAddressUtil {
 	 * @param resolve when true, resolve given hostname at instance creation time
 	 * @return InetSocketAddress for given parameters
 	 */
-	public static InetSocketAddress createInetSocketAddress(String hostname, int port,
+	private static InetSocketAddress createInetSocketAddress(String hostname, int port,
 			boolean resolve) {
 		InetSocketAddress inetAddressForIpString = createForIpString(hostname, port);
 		if (inetAddressForIpString != null) {
 			return inetAddressForIpString;
 		}
 		else {
-			return resolve ? new InetSocketAddress(hostname, port)
-					: InetSocketAddress.createUnresolved(hostname, port);
+			if (resolve) {
+				return dnsNameResolver.resolve(hostname)
+						.map(resolvedAddress -> new InetSocketAddress(resolvedAddress, port))
+						.orElseGet(() -> InetSocketAddress.createUnresolved(hostname, port));
+			} else {
+				return InetSocketAddress.createUnresolved(hostname, port);
+			}
 		}
 	}
 
@@ -107,8 +116,11 @@ public class InetSocketAddressUtil {
 			return inetSocketAddress;
 		}
 		else {
-			return new InetSocketAddress(inetSocketAddress.getHostString(),
-					inetSocketAddress.getPort());
+			final String hostname = inetSocketAddress.getHostString();
+			final int port = inetSocketAddress.getPort();
+			return dnsNameResolver.resolve(hostname)
+					.map(resolvedAddress -> new InetSocketAddress(resolvedAddress, port))
+					.orElseGet(() -> InetSocketAddress.createUnresolved(hostname, port));
 		}
 	}
 

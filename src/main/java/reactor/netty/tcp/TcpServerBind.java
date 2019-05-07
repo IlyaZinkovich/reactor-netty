@@ -28,7 +28,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
-import io.netty.util.NetUtil;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoSink;
@@ -50,10 +49,12 @@ import static reactor.netty.ReactorNetty.format;
 final class TcpServerBind extends TcpServer {
 
 	static final TcpServerBind INSTANCE = new TcpServerBind();
+	private final DnsNameResolver dnsNameResolver;
 	final ServerBootstrap serverBootstrap;
 
-	TcpServerBind() {
-		this.serverBootstrap = createServerBootstrap();
+	private TcpServerBind() {
+    this.dnsNameResolver = new DefaultDnsNameResolver();
+    this.serverBootstrap = createServerBootstrap();
 		BootstrapHandlers.channelOperationFactory(this.serverBootstrap, TcpUtils.TCP_OPS);
 	}
 
@@ -97,8 +98,9 @@ final class TcpServerBind extends TcpServer {
 		return this.serverBootstrap.clone();
 	}
 
+	// TODO: find how this block can be removed with configured dnsResolver
 	@SuppressWarnings("unchecked")
-	static void convertLazyLocalAddress(ServerBootstrap b) {
+	private void convertLazyLocalAddress(ServerBootstrap b) {
 		SocketAddress local = b.config()
 		                       .localAddress();
 
@@ -116,8 +118,7 @@ final class TcpServerBind extends TcpServer {
 			InetSocketAddress localInet = (InetSocketAddress) local;
 
 			if (localInet.isUnresolved()) {
-				b.localAddress(InetSocketAddressUtil.createResolved(localInet.getHostName(),
-						localInet.getPort()));
+				b.localAddress(InetSocketAddressResolver.resolve(localInet.getHostName(), localInet.getPort(), dnsNameResolver));
 			}
 
 		}

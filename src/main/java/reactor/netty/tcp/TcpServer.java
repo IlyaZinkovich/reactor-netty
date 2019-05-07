@@ -16,9 +16,11 @@
 
 package reactor.netty.tcp;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -93,6 +95,27 @@ public abstract class TcpServer {
 	public final TcpServer addressSupplier(Supplier<? extends SocketAddress> bindingAddressSupplier) {
 		Objects.requireNonNull(bindingAddressSupplier, "bindingAddressSupplier");
 		return bootstrap(b -> b.localAddress(bindingAddressSupplier.get()));
+	}
+
+	public final TcpServer dnsResolverSupplier(DnsNameResolver dnsNameResolver) {
+		return bootstrap(b -> {
+			ServerBootstrap serverBootstrap = null;
+			SocketAddress local = b.config().localAddress();
+			Objects.requireNonNull(local, "Remote Address not configured");
+			if (local instanceof Supplier) {
+				Supplier<? extends SocketAddress> lazyLocal = (Supplier<? extends SocketAddress>) local;
+				serverBootstrap = b.localAddress(Objects.requireNonNull(lazyLocal.get(), "address supplier returned  null"));
+			}
+			if (local instanceof InetSocketAddress) {
+				InetSocketAddress localInet = (InetSocketAddress) local;
+				if (localInet.isUnresolved()) {
+					String hostname = localInet.getHostName();
+					int port = localInet.getPort();
+					serverBootstrap = b.localAddress(InetSocketAddressResolver.resolve(hostname, port, dnsNameResolver));
+				}
+			}
+			return Optional.ofNullable(serverBootstrap).orElse(b);
+		});
 	}
 
 	/**

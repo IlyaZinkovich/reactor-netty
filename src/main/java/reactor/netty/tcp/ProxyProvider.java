@@ -19,6 +19,7 @@ package reactor.netty.tcp;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -87,7 +88,9 @@ public final class ProxyProvider {
 		this.username = builder.username;
 		this.password = builder.password;
 		if (Objects.isNull(builder.address)) {
-			this.address = () -> InetSocketAddressUtil.createResolved(builder.host, builder.port);
+			DnsNameResolver dnsNameResolver = Optional.ofNullable(builder.dnsNameResolver)
+					.orElseGet(DefaultDnsNameResolver::new);
+			this.address = () -> InetSocketAddressResolver.resolve(builder.host, builder.port, dnsNameResolver);
 		}
 		else {
 			this.address = builder.address;
@@ -259,6 +262,7 @@ public final class ProxyProvider {
 		String nonProxyHosts;
 		Supplier<? extends HttpHeaders> httpHeaders;
 		Proxy type;
+		DnsNameResolver dnsNameResolver;
 
 		Build() {
 		}
@@ -313,6 +317,12 @@ public final class ProxyProvider {
 					headers.accept(this);
 				}
 			};
+			return this;
+		}
+
+		@Override
+		public Builder dnsNameResolver(DnsNameResolver dnsNameResolver) {
+			this.dnsNameResolver = dnsNameResolver;
 			return this;
 		}
 
@@ -409,6 +419,8 @@ public final class ProxyProvider {
 		 * @return {@code this}
 		 */
 		Builder httpHeaders(Consumer<HttpHeaders> headers);
+
+		Builder dnsNameResolver(DnsNameResolver dnsNameResolver);
 
 		/**
 		 * Builds new ProxyProvider
